@@ -93,6 +93,18 @@ You can download TCGA HNSC, LUAD, and LUSC data from https://www.cancer.gov/tcga
 The CAMELYON16 dataset can be downloaded from https://camelyon16.grand-challenge.org/.
 The HPV status of HNSC dataset and the TP53 mutations of LUAD dataset were downloaded from cBioPortal https://www.cbioportal.org/.
 
+### Preprocessing
+We extracted patches from the slides of 256 × 256 pixels without overlap at 20x magnification (0.5 microns per pixel).
+We identified and excluded background patches via Otsu’s method on slide thumbnails and applied a patch-level minimum standard deviation of 8.
+Features were extracted using the pre-trained [CTransPath](https://github.com/Xiyue-Wang/TransPath) foundation model.
+The following file structure is required for using our data loader:
+- A metadata directory containing
+  - a file "case_metadata.csv" with one row per case and columns for the "case_id" and some prediction target column, and
+  - a file "slide_metadata.csv" with one row per slide and columns for the "case_id" and the "slide_id".
+- A case-level split created via ```split.py``` on top of the aforementioned "case_metadata.csv".
+- A patches directory containing a folder per slide with patch files and a "metadata/df.csv" file with one row per patch and a column "patch_id" identifying all patches.
+- A features directory containing a PyTorch file "{slide_id}.pt" per slide, which includes a Tensor of extracted features in the same order as the sorted "patch_id" values of this slide (ascending). The shape of each Tensor should be (num_patches, num_features).
+
 ### Splits
 The data splitting for the experiments in the manuscript was performed using the scripts under ```scripts/splitting```. 
 The split files are provided under the folder ```results/splits```.
