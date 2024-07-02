@@ -15,8 +15,13 @@ arXiv: https://arxiv.org/abs/2406.04280
 
 </summary>
 
-```bash
-citation bibtex
+```
+@article{hense2024xmil,
+  title={xMIL: Insightful Explanations for Multiple Instance Learning in Histopathology},
+  author={Hense, Julius and Idaji, Mina Jamshidi and Eberle, Oliver and Schnake, Thomas and Dippel, Jonas and Ciernik, Laure and Buchstab, Oliver and Mock, Andreas and Klauschen, Frederick and M{\"u}ller, Klaus-Robert},
+  journal={arXiv preprint arXiv:2406.04280},
+  year={2024}
+}
 ```
 
 </details>
@@ -107,7 +112,7 @@ you can open an issue in this repository, or contact us:
 
 ## License and citation
 If you find our codes useful in your work, please cite us:
-```bash
+```
 @article{hense2024xmil,
   title={xMIL: Insightful Explanations for Multiple Instance Learning in Histopathology},
   author={Hense, Julius and Idaji, Mina Jamshidi and Eberle, Oliver and Schnake, Thomas and Dippel, Jonas and Ciernik, Laure and Buchstab, Oliver and Mock, Andreas and Klauschen, Frederick and M{\"u}ller, Klaus-Robert},
