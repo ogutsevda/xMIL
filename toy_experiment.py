@@ -31,7 +31,7 @@ def get_args():
     parser.add_argument('--threshold', type=int, default=1)
     parser.add_argument('--noise', type=float, default=0)
 
-    parser.add_argument('--model-type', type=str, required=True, choices=['attention_mil', 'transmil'])
+    parser.add_argument('--model-type', type=str, required=True, choices=['attention_mil', 'transmil', 'additive_mil'])
     parser.add_argument('--model-dims', type=int, default=20)
     parser.add_argument('--dropout', action='store_true')
     parser.add_argument('--n-out-layers', type=int, default=0)

@@ -42,7 +42,7 @@ def get_args():
 
     # Model args
     parser.add_argument('--aggregation-model', type=str, default='attention_mil',
-                        choices=['attention_mil', 'transmil'])
+                        choices=['attention_mil', 'transmil', 'additive_mil'])
     parser.add_argument('--input-dim', type=int, default=2048,
                         help="The dimension of the feature vectors.")
     parser.add_argument('--num-classes', type=int, default=2,
