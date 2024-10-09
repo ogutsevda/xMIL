@@ -89,6 +89,9 @@ class xMIL(nn.Module):
     def explain_perturbation(self, batch, perturbation_method):
         raise NotImplementedError()
 
+    def explain_patch_scores(self, batch):
+        raise NotImplementedError()
+
     def get_heatmap(self, batch, heatmap_type, verbose=False):
         if heatmap_type == 'attention' or heatmap_type == 'attention_rollout':
             patch_scores = self.attention_map(batch)

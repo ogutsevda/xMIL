@@ -2,6 +2,7 @@
 from models.attention_mil import AttentionMILModel, xAttentionMIL
 from models.transmil import TransMIL, xTransMIL
 from models.utils import Classifier
+from models.additive_mil import get_additive_mil_model, DefaultMILGraph, xAdditiveMIL
 
 
 class ModelFactory:
@@ -40,6 +41,14 @@ class ModelFactory:
                 n_layers=model_args['n_layers'],
                 bias=(not model_args.get('no_bias', False))
             ).to(device)
+
+        elif model_args['aggregation_model'] == 'additive_mil':
+
+            model = get_additive_mil_model(
+                input_dim=model_args['input_dim'],
+                num_classes=model_args['num_classes'],
+                device=device,
+            )
 
         else:
             raise ValueError(f"Unknown aggregation model: {model_args['aggregation_model']}")
@@ -84,6 +93,11 @@ class xModelFactory:
                 detach_norm=explanation_args.get('detach_norm', None),
                 detach_mean=explanation_args.get('detach_mean', False),
                 detach_pe=explanation_args.get('detach_pe', False)
+            )
+        elif isinstance(model, DefaultMILGraph):
+            xmodel = xAdditiveMIL(
+                model=model,
+                explained_class=explanation_args.get('explained_class', None),
             )
         else:
             raise ValueError(f"No explanation class implemented for model of type: {type(model)}")
