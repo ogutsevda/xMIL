@@ -1,6 +1,7 @@
 
-from models.attention_mil import AttentionMILModel, BinaryMILClassifier, xAttentionMIL
-from models.transmil import TransMIL, MILClassifier, xTransMIL
+from models.attention_mil import AttentionMILModel, xAttentionMIL
+from models.transmil import TransMIL, xTransMIL
+from models.utils import Classifier
 
 
 class ModelFactory:
@@ -23,14 +24,6 @@ class ModelFactory:
                 bias=(not model_args.get('no_bias', False)),
                 device=device
             )
-            classifier = BinaryMILClassifier(
-                model=model,
-                learning_rate=model_args['learning_rate'],
-                weight_decay=model_args['weight_decay'],
-                objective=model_args['objective'],
-                gradient_clip=model_args['grad_clip'],
-                device=device
-            )
 
         elif model_args['aggregation_model'] == 'transmil':
 
@@ -48,18 +41,18 @@ class ModelFactory:
                 bias=(not model_args.get('no_bias', False))
             ).to(device)
 
-            classifier = MILClassifier(
-                model=model,
-                learning_rate=model_args['learning_rate'],
-                weight_decay=model_args['weight_decay'],
-                optimizer=model_args['optimizer'],
-                objective=model_args['objective'],
-                gradient_clip=model_args['grad_clip'],
-                device=device
-            )
-
         else:
             raise ValueError(f"Unknown aggregation model: {model_args['aggregation_model']}")
+
+        classifier = Classifier(
+            model=model,
+            learning_rate=model_args['learning_rate'],
+            weight_decay=model_args['weight_decay'],
+            optimizer=model_args['optimizer'],
+            objective=model_args['objective'],
+            gradient_clip=model_args['grad_clip'],
+            device=device
+        )
 
         return model, classifier
 

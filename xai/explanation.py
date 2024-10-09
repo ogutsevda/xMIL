@@ -37,6 +37,11 @@ class xMIL(nn.Module):
         explanations = features.grad ** 2
         return explanations.sum(-1).detach().cpu().numpy()
 
+    def integrated_gradients(self, ig, features, set_explained_class):
+        explanations = ig.attribute(features, target=set_explained_class,
+                                    internal_batch_size=len(features))
+        return explanations.sum(-1).detach().cpu().numpy()
+
     @staticmethod
     def perturbation_scores(batch, perturbation_method, forward_fn, explained_class, explained_rel='softmax'):
         num_batches, num_patches = len(batch['bag_size']), batch['bag_size'][0]

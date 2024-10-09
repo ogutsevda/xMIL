@@ -4,11 +4,14 @@
 (c) xTransMIl, all xforward methods, and the classifier class are original implementations.
 
 """
-
+from functools import partial
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
+from captum.attr import IntegratedGradients
 
+from models.utils import Classifier
 from models.attention import Attention
 
 from xai.lrp_rules import modified_linear_layer
@@ -253,6 +256,9 @@ class TransMIL(nn.Module):
         res = self._fc2(h)  # [B, n_classes]
 
         return res
+
+    def forward_fn(self, features, bag_sizes):
+        return self.forward(features)
 
     def activations(self, x, detach_attn=True, detach_norm=None, detach_pe=False, lrp_params=None, verbose=False):
         """
@@ -540,62 +546,10 @@ class xTransMIL(xMIL):
         explained_class = self.set_explained_class(batch)
         return self.perturbation_scores(batch, perturbation_method, forward_fn, explained_class, self.explained_rel)
 
-
-class MILClassifier(nn.Module):
-    """
-    classifier for TransMIL
-    """
-    def __init__(self, model, learning_rate, weight_decay, optimizer='SGD', objective='cross-entropy',
-                 gradient_clip=None, device=torch.device('cpu')):
-        super().__init__()
-        self.model = model
-
-        if self.model.n_classes is None:
-            raise ValueError("Cannot train TransMIL model if n_classes is None.")
-
-        if optimizer == 'SGD':
-            self.optimizer = torch.optim.SGD(
-                self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
-        elif optimizer == 'Adam':
-            self.optimizer = torch.optim.Adam(
-                model.parameters(), lr=learning_rate, weight_decay=weight_decay, amsgrad=False)
-        else:
-            raise ValueError(f"Unknown optimizer: {optimizer}")
-
-        if objective == 'bce':
-            self.criterion = torch.nn.BCELoss()
-        elif objective == 'cross-entropy':
-            self.criterion = torch.nn.CrossEntropyLoss()
-        elif objective == 'bce-with-logit':
-            self.criterion = torch.nn.BCEWithLogitsLoss
-        else:
-            raise ValueError(f"Unknown objective: {objective}")
-
-        self.gradient_clip = gradient_clip
-        self.device = device
-
-    def training_step(self, batch):
-        self.model.train()
-        self.optimizer.zero_grad()
-        features, targets = batch['features'], batch['targets']
-        features = features.to(torch.float32).to(self.device)
-        targets = targets.to(self.device)
-        preds = self.model(features)
-        loss = self.criterion(preds, targets.squeeze(1))
-        loss.backward()
-        if self.gradient_clip is not None:
-            nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip)
-        self.optimizer.step()
-        return preds.detach(), targets.detach(), loss.detach()
-
-    def validation_step(self, batch, softmax=True):
+    def explain_integrated_gradients(self, batch):
         self.model.eval()
-        features, targets = batch['features'], batch['targets']
-        features = features.to(torch.float32).to(self.device)
-        targets = targets.to(self.device)
-        preds = self.model(features)
-        loss = self.criterion(preds, targets.squeeze(1))
-        if softmax:
-            preds = nn.functional.softmax(preds, dim=1)
-        return preds.detach(), targets.detach(), loss.detach(), \
-            {'source_id': batch['source_id'], 'slide_id': batch['slide_id']}
+        features = batch['features'].to(self.device)
+
+        ig = IntegratedGradients(self.model)
+        explanations = self.integrated_gradients(ig, features, self.set_explained_class(batch))
+        return explanations
