@@ -13,6 +13,9 @@ Oliver Buchstab, Andreas Mock, Frederick Klauschen, Klaus-Robert Müller </em></
 
 arXiv: https://arxiv.org/abs/2406.04280
 
+
+Accepted as a poster presentation at NeurIPS2024
+
 </summary>
 
 ```
