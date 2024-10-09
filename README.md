@@ -42,7 +42,9 @@ and four real-world histopathology datasets.
 ## Usage
 
 ### Models
-The two models available in this repository are: **Attention MIL** and **TransMIL**. The implementation of the models 
+The two models with their implementation of xMIL-LRP available in this repository are: **Attention MIL** and **TransMIL**.  
+Additionally, you can perform the training on your data with Additive MIL. 
+The implementation of the models 
 can be found under the module ```models```.
 
 ### Model training
