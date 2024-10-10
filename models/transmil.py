@@ -157,7 +157,7 @@ class TransMILPooler(nn.Module):
 class TransMIL(nn.Module):
     def __init__(self, n_feat_input, n_feat, n_classes, device, attention='nystrom', n_layers=2,
                  dropout_att=0.1, dropout_class=0.5, dropout_feat=0, attn_residual=True,
-                 bias=True):
+                 pool_method='cls_token', n_out_layers=0, bias=True):
         """
 
         :param n_feat_input: (int) Dimension of the incoming feature vectors.
@@ -170,6 +170,8 @@ class TransMIL(nn.Module):
         :param dropout_class: (float) probability of features before the classification to be zeroed. Default: 0
         :param dropout_feat: (float) probability of features after the linear layers to be zeroed. Default: 0
         :param attn_residual: (bool) if True, there will be a residual connection in self attention. default: True.
+        :param pool_method: (str) can be 'cls_token' (default) or 'sum'.
+        :param n_out_layers: (int) number of linear layers applied before the classifier.
         :param bias: (bool) if False then the bias term is omitted from all linear layers. default: True
         """
         super().__init__()
@@ -183,7 +185,7 @@ class TransMIL(nn.Module):
         self.device = device
         self.n_layers = n_layers
         self._fc1 = nn.Sequential(nn.Linear(n_feat_input, n_feat, bias=bias), nn.ReLU())
-        self.pos_layer = PPEG(dim=n_feat, cls_token=True)
+        self.pos_layer = PPEG(dim=n_feat, cls_token=(pool_method == 'cls_token'))
         self.norm = nn.LayerNorm(n_feat)
         self.attention = attention
         self.translayers = nn.Sequential(*[
@@ -194,9 +196,16 @@ class TransMIL(nn.Module):
         self.dropout_feat = nn.Dropout(dropout_feat)
 
         # pooling settings
-
-        self.pooler = TransMILPooler(method='cls_token')
+        self.pool_method = pool_method
+        self.pooler = TransMILPooler(method=pool_method)
         self.cls_token = nn.Parameter(torch.randn(1, 1, n_feat))
+
+        # MLP at output
+        mlp_layers = [nn.Sequential(
+            nn.Linear(n_feat, n_feat, bias=bias),
+            nn.ReLU(),
+        ) for _ in range(n_out_layers)]
+        self.mlp_layers = nn.Sequential(*mlp_layers)
 
         self._fc2 = nn.Linear(n_feat, n_classes, bias=bias)
 
@@ -223,9 +232,6 @@ class TransMIL(nn.Module):
         return torch.cat((cls_tokens, h), dim=1)
 
     def forward(self, x):
-        """
-        (c) refactored from https://github.com/szc19990412/TransMIL
-        """
         h = x.float()  # [B, n, n_feat_input]
         h = self._fc1(h)  # [B, n, n_feat]
         h = self.dropout_feat(h)
@@ -234,7 +240,8 @@ class TransMIL(nn.Module):
         h, _H = self._pad(h)
 
         # ---->cls_token
-        h = self._add_clstoken(h)
+        if self.pool_method == 'cls_token':
+            h = self._add_clstoken(h)
 
         # ---->Translayer x1
         h = self.translayers[0](h)
@@ -249,7 +256,11 @@ class TransMIL(nn.Module):
         h = self.norm(h)
 
         # ----> notmalize and pool
-        h = self.pooler(h)  # [B, n_feat]
+        if self.pool_method == 'cls_token':
+            h = self.pooler(h)  # [B, n_feat]
+
+        if self.mlp_layers:
+            self.mlp_layers(h)
 
         # ---->predict
         h = self.dropout_class(h)

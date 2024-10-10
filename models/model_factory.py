@@ -39,6 +39,8 @@ class ModelFactory:
                 dropout_feat=model_args['dropout_feat'],
                 device=device,
                 n_layers=model_args['n_layers'],
+                n_out_layers=model_args.get('n_out_layers', 0),
+                pool_method=model_args.get('pool_method', 'cls_token'),
                 bias=(not model_args.get('no_bias', False))
             ).to(device)
 
