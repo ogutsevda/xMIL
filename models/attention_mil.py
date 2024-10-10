@@ -11,7 +11,6 @@ from xai.lrp_utils import var_data_requires_grad, set_lrp_params
 from xai.explanation import xMIL
 
 
-
 class AttentionMILModel(nn.Module):
 
     def __init__(self, input_dim, num_classes=None, features_dim=256, inner_attention_dim=128, dropout=None,
@@ -33,7 +32,7 @@ class AttentionMILModel(nn.Module):
         # Save args
         self.bias = bias
         self.input_dim = input_dim
-        self.num_classes = num_classes
+        self.n_classes = num_classes
         self.features_dim = features_dim
         self.inner_attention_dim = inner_attention_dim
         self.num_layers = num_layers
@@ -60,7 +59,7 @@ class AttentionMILModel(nn.Module):
         ) for _ in range(n_out_layers)]
         self.out_layers = nn.Sequential(*out_layers)
 
-        self.classifier = nn.Linear(self.features_dim, self.num_classes, bias=bias)
+        self.classifier = nn.Linear(self.features_dim, self.n_classes, bias=bias)
 
         # Set up dropout layers
         self.feature_dropout, self.linear_dropout, self.classifier_dropout = None, None, None
