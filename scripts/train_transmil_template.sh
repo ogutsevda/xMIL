@@ -7,7 +7,7 @@ dropouts_class=0.5
 dropouts_feat=0.2
 learning_rate=0.0002
 weight_decay=0.0
-seed=0
+max_bag_size=24000
 
 
 python3 train.py \
@@ -23,7 +23,7 @@ python3 train.py \
 --test-subsets test \
 --drop-duplicates sample \
 --train-bag-size $bag_size \
---max-bag-size 24000 \
+--max-bag-size $max_bag_size \
 --preload-data \
 \
 --aggregation-model transmil \
@@ -36,7 +36,7 @@ python3 train.py \
 --n-layers 2 \
 --pool-method cls_token \
 \
---train-batch-size $batch_sizes \
+--train-batch-size $batch_size \
 --val-batch-size 1 \
 --learning-rate $learning_rate \
 --weight-decay $weight_decay \
@@ -45,7 +45,5 @@ python3 train.py \
 --val-interval 1 \
 \
 --test-checkpoint best \
-\
---seed $seed \
 \
 --device cuda
