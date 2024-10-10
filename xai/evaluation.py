@@ -122,7 +122,7 @@ class xMILEval:
 
     def patch_drop_or_add(self, data_loader, attribution_strategy='original',
                           order='morf', approach='drop',
-                          strategy='remaining-10-perc', max_bag_size=None, verbose=False):
+                          strategy='remaining-10-perc', max_bag_size=None, min_bag_size=0, verbose=False):
 
         """
 
@@ -138,6 +138,7 @@ class xMILEval:
         :param flip_threshold: (str) f'{N}-percentile' or f'{N}%-of-max-val' or 'random-relevance'.
         the latter sets a threshold to total relevance divided by number of patches
         :param max_bag_size: (int) if not None, the slides with more than max_bag_size patches will be skipped
+        :param min_bag_size: (int)
         :param verbose: (bool)
         :return:
             predicted_probs: the list of the arrays of predicted target class probabilities of all slides
@@ -153,20 +154,27 @@ class xMILEval:
         skipped = []
         slide_ids = []
 
+        max_bag_size_ = torch.Inf if (max_bag_size is None or max_bag_size < 0) else max_bag_size
+
         for i_batch, batch in enumerate(tqdm(data_loader)):
             torch.cuda.empty_cache()
-            slide_ids.append(batch['slide_id'][0])
-
-            max_bag_size_ = batch['bag_size'].item() if max_bag_size is None else max_bag_size
+            slide_id = batch['sample_ids']['slide_id'][0]
+            slide_ids.append(slide_id)
 
             if self.scores_df is not None:
-                df_this_slide = self.scores_df[self.scores_df['slide_id'] == batch['slide_id'][0]]
+                if slide_id not in self.scores_df['slide_id'].values:
+                    skipped.append(i_batch)
+                    predicted_probs_, false_pred_ = None, None
+                    predicted_probs.append(predicted_probs_)
+                    continue
+
+                df_this_slide = self.scores_df[self.scores_df['slide_id'] == slide_id]
                 patch_scores = np.array(json.loads(df_this_slide[f'patch_scores_{self.heatmap_type}'].item()))
 
             else:
                 patch_scores = None
 
-            if batch['bag_size'].item() <= max_bag_size_:
+            if min_bag_size <= batch['bag_size'].item() <= max_bag_size_:
                 predicted_probs_, false_pred_ = \
                     self._patch_drop_or_add_oneslide(batch, attribution_strategy=attribution_strategy,
                                                      order=order, approach=approach, strategy=strategy,
