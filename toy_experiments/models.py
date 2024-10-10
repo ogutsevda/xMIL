@@ -1,5 +1,6 @@
-from models.attention_mil import AttentionMILModel, BinaryMILClassifier, xAttentionMIL
-from models.transmil import TransMIL, MILClassifier, xTransMIL
+from models.attention_mil import AttentionMILModel, xAttentionMIL
+from models.transmil import TransMIL, xTransMIL
+from models.utils import Classifier
 
 
 def get_model_and_classifier(
@@ -19,7 +20,7 @@ def get_model_and_classifier(
             bias=True,
             device=device
         )
-        classifier = BinaryMILClassifier(
+        classifier = Classifier(
             model=model,
             learning_rate=learning_rate,
             weight_decay=weight_decay,
@@ -39,13 +40,11 @@ def get_model_and_classifier(
             dropout_class=0.5 if dropout else 0,
             dropout_feat=0.2 if dropout else 0,
             attn_residual=True,
-            num_targets=1,
-            additive=False,
             pool_method='cls_token',
             n_out_layers=n_out_layers,
             bias=True
         )
-        classifier = MILClassifier(
+        classifier = Classifier(
             model=model,
             learning_rate=learning_rate,
             weight_decay=weight_decay,
