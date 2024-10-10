@@ -46,7 +46,7 @@ class Classifier:
         preds = self.model.forward_fn(features, bag_sizes)
 
         if isinstance(self.criterion, torch.nn.modules.loss.CrossEntropyLoss):
-            preds = preds.view(-1, self.model.n_classes, self.model.num_targets)
+            preds = preds.view(-1, self.model.n_classes, 1)
             loss = self.criterion(preds, targets)
         elif isinstance(self.criterion, torch.nn.modules.loss.BCEWithLogitsLoss):
             targets = targets.float()
