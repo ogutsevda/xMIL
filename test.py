@@ -37,7 +37,7 @@ def get_args():
 
     # Explanations
     parser.add_argument('--explanation-types', default=None, nargs='+', type=str,
-                        choices=[None, 'attention', 'patch_scores', 'lrp', 'gi', 'grad2', 'perturbation_keep',
+                        choices=[None, 'attention', 'patch_scores', 'lrp', 'gi', 'ig', 'grad2', 'perturbation_keep',
                                  'perturbation_drop'],
                         help='If given, patch explanation scores are computed and saved in the predictions dataframe.')
     parser.add_argument('--explained-class', type=int, default=None,
