@@ -536,7 +536,7 @@ class xTransMIL(xMIL):
         self.model.eval()
         features = batch['features'].to(self.device)
         features.requires_grad_(True)
-        logits = self.model(features, self.detach_pe)
+        logits = self.model(features)
         bag_relevance = self.gradient_x_input(features, logits[0, self.set_explained_class(batch)])
         return bag_relevance.squeeze()
 
@@ -544,7 +544,7 @@ class xTransMIL(xMIL):
         self.model.eval()
         features = batch['features'].to(self.device)
         features.requires_grad_(True)
-        logits = self.model(features, self.detach_pe)
+        logits = self.model(features)
         bag_relevance = self.squared_grad(features, logits[0, self.set_explained_class(batch)])
         return bag_relevance.squeeze()
 
