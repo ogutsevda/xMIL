@@ -101,6 +101,8 @@ class xMIL(nn.Module):
             patch_scores = self.explain_gi(batch)
         elif heatmap_type == 'grad2':
             patch_scores = self.explain_squared_grad(batch)
+        elif heatmap_type == 'ig':
+            patch_scores = self.explain_integrated_gradients(batch)
         elif heatmap_type == 'perturbation_keep' or heatmap_type == 'occlusion_keep':
             patch_scores = self.explain_perturbation(batch, 'keep')
         elif heatmap_type == 'perturbation_drop':
