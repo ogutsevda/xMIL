@@ -562,5 +562,5 @@ class xTransMIL(xMIL):
         features = batch['features'].to(self.device)
 
         ig = IntegratedGradients(self.model)
-        explanations = self.integrated_gradients(ig, features, self.set_explained_class(batch))
+        explanations = self.integrated_gradients(ig, features, self.set_explained_class(batch)).squeeze()
         return explanations

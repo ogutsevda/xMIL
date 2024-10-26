@@ -83,6 +83,9 @@ class xMIL(nn.Module):
     def explain_gi(self, batch):
         raise NotImplementedError()
 
+    def explain_integrated_gradients(self, batch):
+        raise NotImplementedError()
+
     def explain_squared_grad(self, batch):
         raise NotImplementedError()
 
@@ -107,6 +110,8 @@ class xMIL(nn.Module):
             patch_scores = self.explain_perturbation(batch, 'keep')
         elif heatmap_type == 'perturbation_drop':
             patch_scores = self.explain_perturbation(batch, 'drop')
+        elif heatmap_type == 'patch_scores':
+            patch_scores = self.explain_patch_scores(batch)
         elif heatmap_type == 'random':
             patch_scores = xMIL.random_scores(batch)
         else:

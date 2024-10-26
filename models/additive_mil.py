@@ -38,10 +38,13 @@ class DefaultMILGraph(torch.nn.Module):
         super().__init__()
         self.classifier = classifier
         self.pointer = pointer
-        self.num_classes = num_classes
+        self.n_classes = num_classes
         self.patch_logits = None
         self.attention_scores = None
         self.device = device
+
+    def forward_fn(self, features, bag_sizes):
+        return self.forward(features, bag_sizes)
 
     def forward(self, features, bag_sizes):
         """
