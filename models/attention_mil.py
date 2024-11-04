@@ -1,8 +1,11 @@
+from functools import partial
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from captum.attr import IntegratedGradients
 
-from models.utils import BinaryClassifier
+from models.utils import Classifier
 from xai.lrp_rules import modified_linear_layer
 from xai.lrp_utils import var_data_requires_grad, set_lrp_params
 from xai.explanation import xMIL
@@ -29,7 +32,7 @@ class AttentionMILModel(nn.Module):
         # Save args
         self.bias = bias
         self.input_dim = input_dim
-        self.num_classes = num_classes
+        self.n_classes = num_classes
         self.features_dim = features_dim
         self.inner_attention_dim = inner_attention_dim
         self.num_layers = num_layers
@@ -56,7 +59,7 @@ class AttentionMILModel(nn.Module):
         ) for _ in range(n_out_layers)]
         self.out_layers = nn.Sequential(*out_layers)
 
-        self.classifier = nn.Linear(self.features_dim, self.num_classes, bias=bias)
+        self.classifier = nn.Linear(self.features_dim, self.n_classes, bias=bias)
 
         # Set up dropout layers
         self.feature_dropout, self.linear_dropout, self.classifier_dropout = None, None, None
@@ -135,6 +138,9 @@ class AttentionMILModel(nn.Module):
         res = self.classifier(bag_embeddings)
 
         return res
+
+    def forward_fn(self, features, bag_sizes):
+        return self.forward(features, bag_sizes)
 
     def activations(self, features, bag_sizes, detach_attn=True, lrp_params=None, verbose=False):
         """
@@ -296,35 +302,16 @@ class xAttentionMIL(xMIL):
         explained_class = self.set_explained_class(batch)
         return self.perturbation_scores(batch, perturbation_method, forward_fn, explained_class, self.explained_rel)
 
+    def explain_integrated_gradients(self, batch):
+        def forward_fn_(bag_sizes_, features_):
+            return self.model(features_, bag_sizes_)
 
-class BinaryMILClassifier(BinaryClassifier):
-    """
-    classifier for AttentionMILModel
-    """
-
-    def __init__(self, *args, **kwargs):
-        super(BinaryMILClassifier, self).__init__(*args, **kwargs)
-        if self.model.num_classes is None:
-            raise ValueError(f"Cannot train AttentionMILModel if num_classes is None.")
-
-    def training_step(self, batch):
-        self.model.train()
-        self.optimizer.zero_grad()
-        features, bag_sizes, targets = \
-            batch['features'].to(self.device), batch['bag_size'].to(self.device), batch['targets'].to(self.device)
-        preds = self.model(features, bag_sizes)
-        loss = self.criterion(preds, targets.squeeze(1))
-        loss.backward()
-        self.optimizer.step()
-        return preds.detach(), targets.detach(), loss.detach()
-
-    def validation_step(self, batch, softmax=True):
         self.model.eval()
-        features, bag_sizes, targets = \
-            batch['features'].to(self.device), batch['bag_size'].to(self.device), batch['targets'].to(self.device)
-        preds = self.model(features, bag_sizes)
-        loss = self.criterion(preds, targets.squeeze(1))
-        if softmax:
-            preds = nn.functional.softmax(preds, dim=1)
-        return preds.detach(), targets.detach(), loss.detach(), \
-            {'source_id': batch['source_id'], 'slide_id': batch['slide_id']}
+        features, bag_sizes = batch['features'].to(self.device), batch['bag_size'].to(self.device)
+        forward_ = partial(forward_fn_, bag_sizes)
+
+        ig = IntegratedGradients(forward_)
+        explanations = self.integrated_gradients(ig, features, self.set_explained_class(batch))
+
+        return explanations
+

@@ -37,6 +37,11 @@ class xMIL(nn.Module):
         explanations = features.grad ** 2
         return explanations.sum(-1).detach().cpu().numpy()
 
+    def integrated_gradients(self, ig, features, set_explained_class):
+        explanations = ig.attribute(features, target=set_explained_class,
+                                    internal_batch_size=len(features))
+        return explanations.sum(-1).detach().cpu().numpy()
+
     @staticmethod
     def perturbation_scores(batch, perturbation_method, forward_fn, explained_class, explained_rel='softmax'):
         num_batches, num_patches = len(batch['bag_size']), batch['bag_size'][0]
@@ -78,10 +83,16 @@ class xMIL(nn.Module):
     def explain_gi(self, batch):
         raise NotImplementedError()
 
+    def explain_integrated_gradients(self, batch):
+        raise NotImplementedError()
+
     def explain_squared_grad(self, batch):
         raise NotImplementedError()
 
     def explain_perturbation(self, batch, perturbation_method):
+        raise NotImplementedError()
+
+    def explain_patch_scores(self, batch):
         raise NotImplementedError()
 
     def get_heatmap(self, batch, heatmap_type, verbose=False):
@@ -93,10 +104,14 @@ class xMIL(nn.Module):
             patch_scores = self.explain_gi(batch)
         elif heatmap_type == 'grad2':
             patch_scores = self.explain_squared_grad(batch)
+        elif heatmap_type == 'ig':
+            patch_scores = self.explain_integrated_gradients(batch)
         elif heatmap_type == 'perturbation_keep' or heatmap_type == 'occlusion_keep':
             patch_scores = self.explain_perturbation(batch, 'keep')
         elif heatmap_type == 'perturbation_drop':
             patch_scores = self.explain_perturbation(batch, 'drop')
+        elif heatmap_type == 'patch_scores':
+            patch_scores = self.explain_patch_scores(batch)
         elif heatmap_type == 'random':
             patch_scores = xMIL.random_scores(batch)
         else:

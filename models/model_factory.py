@@ -1,6 +1,8 @@
 
-from models.attention_mil import AttentionMILModel, BinaryMILClassifier, xAttentionMIL
-from models.transmil import TransMIL, MILClassifier, xTransMIL
+from models.attention_mil import AttentionMILModel, xAttentionMIL
+from models.transmil import TransMIL, xTransMIL
+from models.utils import Classifier
+from models.additive_mil import get_additive_mil_model, DefaultMILGraph, xAdditiveMIL
 
 
 class ModelFactory:
@@ -23,14 +25,6 @@ class ModelFactory:
                 bias=(not model_args.get('no_bias', False)),
                 device=device
             )
-            classifier = BinaryMILClassifier(
-                model=model,
-                learning_rate=model_args['learning_rate'],
-                weight_decay=model_args['weight_decay'],
-                objective=model_args['objective'],
-                gradient_clip=model_args['grad_clip'],
-                device=device
-            )
 
         elif model_args['aggregation_model'] == 'transmil':
 
@@ -45,21 +39,31 @@ class ModelFactory:
                 dropout_feat=model_args['dropout_feat'],
                 device=device,
                 n_layers=model_args['n_layers'],
+                n_out_layers=model_args.get('n_out_layers', 0),
+                pool_method=model_args.get('pool_method', 'cls_token'),
                 bias=(not model_args.get('no_bias', False))
             ).to(device)
 
-            classifier = MILClassifier(
-                model=model,
-                learning_rate=model_args['learning_rate'],
-                weight_decay=model_args['weight_decay'],
-                optimizer=model_args['optimizer'],
-                objective=model_args['objective'],
-                gradient_clip=model_args['grad_clip'],
-                device=device
+        elif model_args['aggregation_model'] == 'additive_mil':
+
+            model = get_additive_mil_model(
+                input_dim=model_args['input_dim'],
+                num_classes=model_args['num_classes'],
+                device=device,
             )
 
         else:
             raise ValueError(f"Unknown aggregation model: {model_args['aggregation_model']}")
+
+        classifier = Classifier(
+            model=model,
+            learning_rate=model_args['learning_rate'],
+            weight_decay=model_args['weight_decay'],
+            optimizer=model_args['optimizer'],
+            objective=model_args['objective'],
+            gradient_clip=model_args['grad_clip'],
+            device=device
+        )
 
         return model, classifier
 
@@ -91,6 +95,11 @@ class xModelFactory:
                 detach_norm=explanation_args.get('detach_norm', None),
                 detach_mean=explanation_args.get('detach_mean', False),
                 detach_pe=explanation_args.get('detach_pe', False)
+            )
+        elif isinstance(model, DefaultMILGraph):
+            xmodel = xAdditiveMIL(
+                model=model,
+                explained_class=explanation_args.get('explained_class', None),
             )
         else:
             raise ValueError(f"No explanation class implemented for model of type: {type(model)}")

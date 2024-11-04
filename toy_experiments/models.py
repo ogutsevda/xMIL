@@ -1,5 +1,7 @@
-from models.attention_mil import AttentionMILModel, BinaryMILClassifier, xAttentionMIL
-from models.transmil import TransMIL, MILClassifier, xTransMIL
+from models.attention_mil import AttentionMILModel, xAttentionMIL
+from models.transmil import TransMIL, xTransMIL
+from models.additive_mil import get_additive_mil_model, xAdditiveMIL
+from models.utils import Classifier
 
 
 def get_model_and_classifier(
@@ -14,12 +16,11 @@ def get_model_and_classifier(
             dropout=0.5 if dropout else 0,
             dropout_strategy='features',
             num_layers=1,
-            additive=False,
             n_out_layers=n_out_layers,
             bias=True,
             device=device
         )
-        classifier = BinaryMILClassifier(
+        classifier = Classifier(
             model=model,
             learning_rate=learning_rate,
             weight_decay=weight_decay,
@@ -39,17 +40,31 @@ def get_model_and_classifier(
             dropout_class=0.5 if dropout else 0,
             dropout_feat=0.2 if dropout else 0,
             attn_residual=True,
-            num_targets=1,
-            additive=False,
             pool_method='cls_token',
             n_out_layers=n_out_layers,
             bias=True
         )
-        classifier = MILClassifier(
+        classifier = Classifier(
             model=model,
             learning_rate=learning_rate,
             weight_decay=weight_decay,
             optimizer='SGD',
+            objective='cross-entropy',
+            gradient_clip=None,
+            device=device
+        )
+    elif model_type == 'additive_mil':
+        model = get_additive_mil_model(
+            input_dim=num_features,
+            num_classes=num_classes,
+            hidden_dim=model_dims,
+            device=device
+        )
+        classifier = Classifier(
+            model=model,
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            optimizer='Adam',
             objective='cross-entropy',
             gradient_clip=None,
             device=device
@@ -84,6 +99,11 @@ def get_xmodel(model_type, explanation_type, model, detach_pe=False):
             detach_norm=None,
             detach_mean=False,
             detach_pe=detach_pe
+        )
+    elif model_type == 'additive_mil':
+        xmodel = xAdditiveMIL(
+            model=model,
+            explained_class=None,
         )
     else:
         raise ValueError(f"No explanation class implemented for model of type: {type(model)}")

@@ -42,7 +42,7 @@ def get_args():
 
     # Model args
     parser.add_argument('--aggregation-model', type=str, default='attention_mil',
-                        choices=['attention_mil', 'transmil'])
+                        choices=['attention_mil', 'transmil', 'additive_mil'])
     parser.add_argument('--input-dim', type=int, default=2048,
                         help="The dimension of the feature vectors.")
     parser.add_argument('--num-classes', type=int, default=2,
@@ -72,6 +72,7 @@ def get_args():
     parser.add_argument('--attention', type=str, default='nystrom')
     parser.add_argument('--n-layers', type=int, default=2)
     parser.add_argument('--no-attn-residual', action='store_true')
+    parser.add_argument('--pool-method', type=str, default='cls_token')
 
     # Training args
     parser.add_argument('--train-batch-size', type=int, default=8)

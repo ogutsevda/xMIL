@@ -1,6 +1,6 @@
 from torch.utils.data import DataLoader
 
-from datasets.mil import MILFeatureDataset
+from datasets.mil import MILSlideDataset
 
 
 class DatasetFactory:
@@ -8,11 +8,10 @@ class DatasetFactory:
     @staticmethod
     def build(dataset_args, model_args):
 
-
         if model_args['aggregation_model'] == 'transmil':
             collate_fn = None
         else:
-            collate_fn = MILFeatureDataset.bag_collate_fn
+            collate_fn = MILSlideDataset.bag_collate_fn
 
         if dataset_args.get('train_subsets') is not None:
             train_dataset = DatasetFactory._build_image_dataset(dataset_args, 'train')
@@ -64,7 +63,7 @@ class DatasetFactory:
         else:
             raise ValueError(f"Unknown stage: {stage}")            
 
-        dataset = MILFeatureDataset(
+        dataset = MILSlideDataset(
             split_path=args['split_path'],
             metadata_dirs=args['metadata_dirs'],
             subsets=subsets,

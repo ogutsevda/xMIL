@@ -4,11 +4,14 @@
 (c) xTransMIl, all xforward methods, and the classifier class are original implementations.
 
 """
-
+from functools import partial
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
+from captum.attr import IntegratedGradients
 
+from models.utils import Classifier
 from models.attention import Attention
 
 from xai.lrp_rules import modified_linear_layer
@@ -154,7 +157,7 @@ class TransMILPooler(nn.Module):
 class TransMIL(nn.Module):
     def __init__(self, n_feat_input, n_feat, n_classes, device, attention='nystrom', n_layers=2,
                  dropout_att=0.1, dropout_class=0.5, dropout_feat=0, attn_residual=True,
-                 bias=True):
+                 pool_method='cls_token', n_out_layers=0, bias=True):
         """
 
         :param n_feat_input: (int) Dimension of the incoming feature vectors.
@@ -167,6 +170,8 @@ class TransMIL(nn.Module):
         :param dropout_class: (float) probability of features before the classification to be zeroed. Default: 0
         :param dropout_feat: (float) probability of features after the linear layers to be zeroed. Default: 0
         :param attn_residual: (bool) if True, there will be a residual connection in self attention. default: True.
+        :param pool_method: (str) can be 'cls_token' (default) or 'sum'.
+        :param n_out_layers: (int) number of linear layers applied before the classifier.
         :param bias: (bool) if False then the bias term is omitted from all linear layers. default: True
         """
         super().__init__()
@@ -180,7 +185,7 @@ class TransMIL(nn.Module):
         self.device = device
         self.n_layers = n_layers
         self._fc1 = nn.Sequential(nn.Linear(n_feat_input, n_feat, bias=bias), nn.ReLU())
-        self.pos_layer = PPEG(dim=n_feat, cls_token=True)
+        self.pos_layer = PPEG(dim=n_feat, cls_token=(pool_method == 'cls_token'))
         self.norm = nn.LayerNorm(n_feat)
         self.attention = attention
         self.translayers = nn.Sequential(*[
@@ -191,9 +196,16 @@ class TransMIL(nn.Module):
         self.dropout_feat = nn.Dropout(dropout_feat)
 
         # pooling settings
-
-        self.pooler = TransMILPooler(method='cls_token')
+        self.pool_method = pool_method
+        self.pooler = TransMILPooler(method=pool_method)
         self.cls_token = nn.Parameter(torch.randn(1, 1, n_feat))
+
+        # MLP at output
+        mlp_layers = [nn.Sequential(
+            nn.Linear(n_feat, n_feat, bias=bias),
+            nn.ReLU(),
+        ) for _ in range(n_out_layers)]
+        self.mlp_layers = nn.Sequential(*mlp_layers)
 
         self._fc2 = nn.Linear(n_feat, n_classes, bias=bias)
 
@@ -220,9 +232,6 @@ class TransMIL(nn.Module):
         return torch.cat((cls_tokens, h), dim=1)
 
     def forward(self, x):
-        """
-        (c) refactored from https://github.com/szc19990412/TransMIL
-        """
         h = x.float()  # [B, n, n_feat_input]
         h = self._fc1(h)  # [B, n, n_feat]
         h = self.dropout_feat(h)
@@ -231,7 +240,8 @@ class TransMIL(nn.Module):
         h, _H = self._pad(h)
 
         # ---->cls_token
-        h = self._add_clstoken(h)
+        if self.pool_method == 'cls_token':
+            h = self._add_clstoken(h)
 
         # ---->Translayer x1
         h = self.translayers[0](h)
@@ -246,13 +256,20 @@ class TransMIL(nn.Module):
         h = self.norm(h)
 
         # ----> notmalize and pool
-        h = self.pooler(h)  # [B, n_feat]
+        if self.pool_method == 'cls_token':
+            h = self.pooler(h)  # [B, n_feat]
+
+        if self.mlp_layers:
+            self.mlp_layers(h)
 
         # ---->predict
         h = self.dropout_class(h)
         res = self._fc2(h)  # [B, n_classes]
 
         return res
+
+    def forward_fn(self, features, bag_sizes):
+        return self.forward(features)
 
     def activations(self, x, detach_attn=True, detach_norm=None, detach_pe=False, lrp_params=None, verbose=False):
         """
@@ -519,7 +536,7 @@ class xTransMIL(xMIL):
         self.model.eval()
         features = batch['features'].to(self.device)
         features.requires_grad_(True)
-        logits = self.model(features, self.detach_pe)
+        logits = self.model(features)
         bag_relevance = self.gradient_x_input(features, logits[0, self.set_explained_class(batch)])
         return bag_relevance.squeeze()
 
@@ -527,7 +544,7 @@ class xTransMIL(xMIL):
         self.model.eval()
         features = batch['features'].to(self.device)
         features.requires_grad_(True)
-        logits = self.model(features, self.detach_pe)
+        logits = self.model(features)
         bag_relevance = self.squared_grad(features, logits[0, self.set_explained_class(batch)])
         return bag_relevance.squeeze()
 
@@ -540,62 +557,10 @@ class xTransMIL(xMIL):
         explained_class = self.set_explained_class(batch)
         return self.perturbation_scores(batch, perturbation_method, forward_fn, explained_class, self.explained_rel)
 
-
-class MILClassifier(nn.Module):
-    """
-    classifier for TransMIL
-    """
-    def __init__(self, model, learning_rate, weight_decay, optimizer='SGD', objective='cross-entropy',
-                 gradient_clip=None, device=torch.device('cpu')):
-        super().__init__()
-        self.model = model
-
-        if self.model.n_classes is None:
-            raise ValueError("Cannot train TransMIL model if n_classes is None.")
-
-        if optimizer == 'SGD':
-            self.optimizer = torch.optim.SGD(
-                self.model.parameters(), lr=learning_rate, momentum=0.9, weight_decay=weight_decay)
-        elif optimizer == 'Adam':
-            self.optimizer = torch.optim.Adam(
-                model.parameters(), lr=learning_rate, weight_decay=weight_decay, amsgrad=False)
-        else:
-            raise ValueError(f"Unknown optimizer: {optimizer}")
-
-        if objective == 'bce':
-            self.criterion = torch.nn.BCELoss()
-        elif objective == 'cross-entropy':
-            self.criterion = torch.nn.CrossEntropyLoss()
-        elif objective == 'bce-with-logit':
-            self.criterion = torch.nn.BCEWithLogitsLoss
-        else:
-            raise ValueError(f"Unknown objective: {objective}")
-
-        self.gradient_clip = gradient_clip
-        self.device = device
-
-    def training_step(self, batch):
-        self.model.train()
-        self.optimizer.zero_grad()
-        features, targets = batch['features'], batch['targets']
-        features = features.to(torch.float32).to(self.device)
-        targets = targets.to(self.device)
-        preds = self.model(features)
-        loss = self.criterion(preds, targets.squeeze(1))
-        loss.backward()
-        if self.gradient_clip is not None:
-            nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip)
-        self.optimizer.step()
-        return preds.detach(), targets.detach(), loss.detach()
-
-    def validation_step(self, batch, softmax=True):
+    def explain_integrated_gradients(self, batch):
         self.model.eval()
-        features, targets = batch['features'], batch['targets']
-        features = features.to(torch.float32).to(self.device)
-        targets = targets.to(self.device)
-        preds = self.model(features)
-        loss = self.criterion(preds, targets.squeeze(1))
-        if softmax:
-            preds = nn.functional.softmax(preds, dim=1)
-        return preds.detach(), targets.detach(), loss.detach(), \
-            {'source_id': batch['source_id'], 'slide_id': batch['slide_id']}
+        features = batch['features'].to(self.device)
+
+        ig = IntegratedGradients(self.model)
+        explanations = self.integrated_gradients(ig, features, self.set_explained_class(batch)).squeeze()
+        return explanations

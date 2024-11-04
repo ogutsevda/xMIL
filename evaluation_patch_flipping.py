@@ -84,10 +84,12 @@ def main():
     device = torch.device(args_user.device)
 
     # load the data_loader of interest based on the user argument args_user.dataset
+    args_dataset = {**args_model, **vars(args_user)}
     none_datasets = [f'{set_name}_subsets' for set_name in ['train', 'val', 'test'] if set_name != args_user.dataset]
     for set_name in none_datasets:
-        args_model[set_name] = None
-    _, train_loader, _, val_loader, _, test_loader = DatasetFactory.build(args_model, args_model)
+        args_dataset[set_name] = None
+
+    _, train_loader, _, val_loader, _, test_loader = DatasetFactory.build(args_dataset, args_dataset)
     data_loader = [loader for loader in [train_loader, val_loader, test_loader] if loader is not None][0]
 
     # define callback, model, classifier, xmodel, and xmodel_eval

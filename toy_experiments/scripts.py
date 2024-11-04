@@ -69,16 +69,16 @@ def train_model(classifier, num_classes, data_loader_train, data_loader_val, bat
     return res_metrics
 
 
-def ndgcn(relevance, scores, n=None, idcg_1=False):
+def ndgcn(evidence, scores, n=None, idcg_1=False):
     if n is None:
         n = len(scores)
-    sorted_relevance = relevance[np.argsort(-scores)][:n]
+    sorted_evidence = evidence[np.argsort(-scores)][:n]
     if idcg_1:
-        ideal_sorted_relevance = 1
+        ideal_sorted_evidence = 1
     else:
-        ideal_sorted_relevance = -np.sort(-relevance)[:n]
+        ideal_sorted_evidence = -np.sort(-evidence)[:n]
     log_indices = np.log2(np.arange(2, n + 2))
-    res = (sorted_relevance / log_indices).sum() / (ideal_sorted_relevance / log_indices).sum()
+    res = (sorted_evidence / log_indices).sum() / (ideal_sorted_evidence / log_indices).sum()
     return res
 
 
@@ -86,7 +86,7 @@ def evaluate_explanation(xmodel, classifier, data_loader_test, explanation_type,
                          ndgcn_n=None):
 
     scores = {
-        'auroc_pos': [], 'auprc_pos': [], 'ndgcn': [], 'pearsonr': [], 'spearmanr': [], 'auroc_ovr': [], 'auprc_ovr': []
+        'auroc_pos': [], 'auprc_pos': [], 'ndgcn': [], 'pearsonr': [], 'spearmanr': [], 'auroc_2': [], 'auprc_2': []
     }
     all_preds, all_labels = [], []
 
@@ -99,7 +99,7 @@ def evaluate_explanation(xmodel, classifier, data_loader_test, explanation_type,
         all_labels.append(label)
 
         if evaluated_classes == 'all_classes':
-            eval_classes = list(batch['relevance'].keys())
+            eval_classes = list(batch['evidence'].keys())
         elif evaluated_classes == 'label_class':
             eval_classes = [label.item()]
         elif evaluated_classes == 'predicted_class':
@@ -115,32 +115,32 @@ def evaluate_explanation(xmodel, classifier, data_loader_test, explanation_type,
 
             xmodel.explained_class = eval_class
             patch_scores = xmodel.get_heatmap(batch, explanation_type, False)
-            relevance = batch['relevance'][eval_class][0]
-            assert -1 <= relevance.min() and relevance.max() <= 1
-            relevance_pos = torch.nn.functional.relu(relevance)
-            relevance_neg = torch.nn.functional.relu(-relevance)
-            relevance_rank = relevance + 1
+            evidence = batch['evidence'][eval_class][0]
+            assert -1 <= evidence.min() and evidence.max() <= 1
+            evidence_pos = torch.nn.functional.relu(evidence)
+            evidence_neg = torch.nn.functional.relu(-evidence)
+            evidence_rank = evidence + 1
 
-            auroc_ovr, auprc_ovr = [], []
+            auroc_2, auprc_2 = [], []
 
-            if 0 < relevance_pos.sum() < len(relevance_pos):
-                auroc = roc_auc_score(relevance_pos.detach().cpu().numpy(), patch_scores)
-                auprc = average_precision_score(relevance_pos.detach().cpu().numpy(), patch_scores)
+            if 0 < evidence_pos.sum() < len(evidence_pos):
+                auroc = roc_auc_score(evidence_pos.detach().cpu().numpy(), patch_scores)
+                auprc = average_precision_score(evidence_pos.detach().cpu().numpy(), patch_scores)
                 scores['auroc_pos'].append(auroc)
                 scores['auprc_pos'].append(auprc)
-                auroc_ovr.append(auroc)
-                auprc_ovr.append(auprc)
-                scores['ndgcn'].append(ndgcn(relevance_rank.detach().cpu().numpy(), patch_scores, ndgcn_n))
-                scores['pearsonr'].append(pearsonr(relevance.detach().cpu().numpy(), patch_scores))
-                scores['spearmanr'].append(spearmanr(relevance.detach().cpu().numpy(), patch_scores))
+                auroc_2.append(auroc)
+                auprc_2.append(auprc)
+                scores['ndgcn'].append(ndgcn(evidence_rank.detach().cpu().numpy(), patch_scores, ndgcn_n))
+                scores['pearsonr'].append(pearsonr(evidence.detach().cpu().numpy(), patch_scores))
+                scores['spearmanr'].append(spearmanr(evidence.detach().cpu().numpy(), patch_scores))
 
-            if 0 < relevance_neg.sum() < len(relevance_neg):
-                auroc_ovr.append(roc_auc_score(relevance_neg.detach().cpu().numpy(), -patch_scores))
-                auprc_ovr.append(average_precision_score(relevance_neg.detach().cpu().numpy(), -patch_scores))
+            if 0 < evidence_neg.sum() < len(evidence_neg):
+                auroc_2.append(roc_auc_score(evidence_neg.detach().cpu().numpy(), -patch_scores))
+                auprc_2.append(average_precision_score(evidence_neg.detach().cpu().numpy(), -patch_scores))
 
-            if len(auroc_ovr) > 0:
-                scores['auroc_ovr'].append(np.asarray(auroc_ovr).mean())
-                scores['auprc_ovr'].append(np.asarray(auprc_ovr).mean())
+            if len(auroc_2) > 0:
+                scores['auroc_2'].append(np.asarray(auroc_2).mean())
+                scores['auprc_2'].append(np.asarray(auprc_2).mean())
 
     all_preds, all_labels = torch.stack(all_preds), torch.stack(all_labels)
     scores = {key: torch.tensor(val) for key, val in scores.items()}

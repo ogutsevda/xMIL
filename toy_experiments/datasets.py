@@ -14,12 +14,12 @@ def get_number_mil_dataset(
 ):
     if dataset_type == 'smil':
         dataset_cls = SMILDataset
+    elif dataset_type == 'four_bags':
+        dataset_cls = FourBagsDataset
     elif dataset_type == 'pos_neg':
         dataset_cls = PosNegDataset
-    elif dataset_type == 'four_class':
-        dataset_cls = FourClassBagDataset
-    elif dataset_type == 'adjacent_smil':
-        dataset_cls = AdjacentSMILDataset
+    elif dataset_type == 'adjacent_pairs':
+        dataset_cls = AdjacentPairsDataset
     else:
         raise ValueError(f"Unknown dataset type: {dataset_type}")
     dataset = dataset_cls(
@@ -27,28 +27,6 @@ def get_number_mil_dataset(
         sampling=sampling, noise=noise, threshold=threshold, features_path=features_path
     )
     return dataset
-
-
-def bag_collate_fn(batch_list):
-    """
-    Custom collate function for this dataset.
-    """
-    col_batch = {}
-    for key in batch_list[0].keys():
-        if key == 'features':
-            col_batch[key] = torch.concat([batch[key] for batch in batch_list])
-        elif key == 'targets':
-            col_batch[key] = torch.stack([batch[key] for batch in batch_list])
-        elif key == 'numbers':
-            col_batch[key] = torch.stack([batch[key] for batch in batch_list])
-        elif key == 'relevance':
-            red_batch_list = []
-            for batch in batch_list:
-                red_batch_list.append({key: batch[key]})
-            col_batch[key] = default_collate(red_batch_list)[key]
-        else:
-            col_batch[key] = torch.tensor([batch[key] for batch in batch_list])
-    return col_batch
 
 
 def get_MNIST_features(root, download=True):
@@ -80,6 +58,30 @@ def get_MNIST_features(root, download=True):
     targets = torch.concat(targets)
     data_dict = {t: features[targets == t] for t in range(10)}
     return data_dict
+
+
+def bag_collate_fn(batch_list):
+    """
+    Custom collate function for this dataset.
+    """
+    col_batch = {}
+    for key in batch_list[0].keys():
+        if key == 'features':
+            col_batch[key] = torch.concat([batch[key] for batch in batch_list])
+        elif key == 'sample_ids':
+            col_batch[key] = {col: [batch[key][col] for batch in batch_list] for col in batch_list[0][key]}
+        elif key == 'targets':
+            col_batch[key] = torch.stack([batch[key] for batch in batch_list])
+        elif key == 'numbers':
+            col_batch[key] = torch.stack([batch[key] for batch in batch_list])
+        elif key == 'evidence':
+            red_batch_list = []
+            for batch in batch_list:
+                red_batch_list.append({key: batch[key]})
+            col_batch[key] = default_collate(red_batch_list)[key]
+        else:
+            col_batch[key] = torch.tensor([batch[key] for batch in batch_list])
+    return col_batch
 
 
 class NumberMILDataset(Dataset):
@@ -128,8 +130,8 @@ class NumberMILDataset(Dataset):
         return self.num_bags
 
     def __getitem__(self, idx):
-        return {'features': self.features[idx], 'bag_size': self.num_instances,
-                'numbers': self.numbers[idx], 'source_id': 0, 'slide_id': 0}
+        return {'features': self.features[idx], 'bag_size': self.num_instances, 'numbers': self.numbers[idx],
+                'sample_ids': {}}
 
 
 class SMILDataset(NumberMILDataset):
@@ -146,8 +148,8 @@ class SMILDataset(NumberMILDataset):
             targets = torch.tensor([1])
         else:
             targets = torch.tensor([0])
-        pos_relevance = (item['numbers'] == pos_number) * 1
-        return {**item, 'targets': targets, 'relevance': {0: -pos_relevance, 1: pos_relevance}}
+        pos_evidence = (item['numbers'] == pos_number) * 1
+        return {**item, 'targets': targets, 'evidence': {0: -pos_evidence, 1: pos_evidence}}
 
 
 class PosNegDataset(NumberMILDataset):
@@ -165,13 +167,13 @@ class PosNegDataset(NumberMILDataset):
             targets = torch.tensor([1])
         else:
             targets = torch.tensor([0])
-        pos_relevance = torch.isin(item['numbers'], pos_numbers) * 1
-        neg_relevance = torch.isin(item['numbers'], neg_numbers) * 1
-        relevance = {0: neg_relevance - pos_relevance, 1: pos_relevance - neg_relevance}
-        return {**item, 'targets': targets, 'relevance': relevance}
+        pos_evidence = torch.isin(item['numbers'], pos_numbers) * 1
+        neg_evidence = torch.isin(item['numbers'], neg_numbers) * 1
+        evidence = {0: neg_evidence - pos_evidence, 1: pos_evidence - neg_evidence}
+        return {**item, 'targets': targets, 'evidence': evidence}
 
 
-class FourClassBagDataset(NumberMILDataset):
+class FourBagsDataset(NumberMILDataset):
 
     @property
     def num_classes(self):
@@ -193,16 +195,16 @@ class FourClassBagDataset(NumberMILDataset):
             c1_number: (item['numbers'] == c1_number) * 1,
             c2_number: (item['numbers'] == c2_number) * 1,
         }
-        relevance = {
+        evidence = {
             0: -num_positions[c1_number] - num_positions[c2_number],
             1: num_positions[c1_number] - num_positions[c2_number],
             2: -num_positions[c1_number] + num_positions[c2_number],
             3: num_positions[c1_number] + num_positions[c2_number],
         }
-        return {**item, 'targets': targets, 'relevance': relevance}
+        return {**item, 'targets': targets, 'evidence': evidence}
 
 
-class AdjacentSMILDataset(NumberMILDataset):
+class AdjacentPairsDataset(NumberMILDataset):
 
     @property
     def num_classes(self):
@@ -211,11 +213,11 @@ class AdjacentSMILDataset(NumberMILDataset):
     def __getitem__(self, idx):
         item = super().__getitem__(idx)
         number_count = torch.bincount(item['numbers'], minlength=self.num_numbers)
-        relevance_thr = 5
+        evidence_thr = 5
         numbers = (number_count >= self.thr).nonzero().squeeze().tolist()
         pos_tuples = []
         if isinstance(numbers, list) and len(numbers) > 1:
-            numbers = list(filter(lambda x: x < relevance_thr, numbers))
+            numbers = list(filter(lambda x: x < evidence_thr, numbers))
             for idx, num_0 in enumerate(numbers):
                 num_1 = numbers[(idx + 1) % len(numbers)]
                 if (num_0 + 1) == num_1:
@@ -224,5 +226,5 @@ class AdjacentSMILDataset(NumberMILDataset):
             targets = torch.tensor([1])
         else:
             targets = torch.tensor([0])
-        pos_rel = (torch.isin(item['numbers'], torch.tensor(pos_tuples).flatten())) * 1
-        return {**item, 'targets': targets, 'relevance': {0: -pos_rel, 1: pos_rel}}
+        pos_evidence = (torch.isin(item['numbers'], torch.tensor(pos_tuples).flatten())) * 1
+        return {**item, 'targets': targets, 'evidence': {0: -pos_evidence, 1: pos_evidence}}

@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 from sklearn.metrics import roc_auc_score
 
-from toy_experiments.datasets import get_number_mil_dataset, bag_collate_fn
+from toy_experiments.datasets import get_number_mil_dataset, bag_collate_fn, get_MNIST_features
 from toy_experiments.scripts import train_model, evaluate_explanation
 from toy_experiments.models import get_model_and_classifier, get_xmodel
 
@@ -24,14 +24,16 @@ def get_args():
     parser.add_argument('--num-instances', type=int, default=30)
     parser.add_argument('--sampling', type=str, default='hierarchical', choices=['unique', 'uniform', 'hierarchical'])
     parser.add_argument('--features-type', type=str, default='mnist_resnet18', choices=['onehot', 'mnist_resnet18'])
-    parser.add_argument('--features-path', type=str, default=None, help='Path to pre-computed feature vectors.')
+    parser.add_argument('--features-path', type=str, default=None,
+                        help='Path to pre-computed feature vectors. If the feature vectors have not been pre-computed,'
+                             'they will be extracted and saved to this path.')
     parser.add_argument('--num-bags-train', type=int, default=2000)
     parser.add_argument('--num-bags-val', type=int, default=500)
     parser.add_argument('--num-bags-test', type=int, default=1000)
     parser.add_argument('--threshold', type=int, default=1)
     parser.add_argument('--noise', type=float, default=0)
 
-    parser.add_argument('--model-type', type=str, required=True, choices=['attention_mil', 'transmil'])
+    parser.add_argument('--model-type', type=str, required=True, choices=['attention_mil', 'transmil', 'additive_mil'])
     parser.add_argument('--model-dims', type=int, default=20)
     parser.add_argument('--dropout', action='store_true')
     parser.add_argument('--n-out-layers', type=int, default=0)
@@ -45,8 +47,7 @@ def get_args():
     parser.add_argument('--tolerance', type=float, default=0.0)
     parser.add_argument('--checkpoint', type=str, default='best')
 
-    parser.add_argument('--explanation-methods', type=str, nargs='+',
-                        default=['random', 'attention', 'perturbation_keep', 'grad2', 'gi', 'lrp'])
+    parser.add_argument('--explanation-methods', type=str, nargs='+', default=[None])
     parser.add_argument('--evaluated-classes', type=str, default='all_classes',
                         choices=['label_class', 'predicted_class', 'all_classes'])
     parser.add_argument('--detach-pe', action='store_true')
@@ -71,6 +72,18 @@ def main():
 
     device = torch.device(args.device)
 
+    # Load MNIST data and extract features if not already present
+    if args.features_type == "mnist_resnet18":
+        if not os.path.exists(args.features_path):
+            os.makedirs(args.features_path)
+        if not all([f"class_{idx}.pt" in os.listdir(args.features_path) for idx in range(10)]):
+            print(f"No or not all MNIST features found at: {args.features_path}. Starting feature extraction.")
+            mnist_features = get_MNIST_features(args.features_path, download=True)
+            for idx in range(10):
+                mnist_class_path = os.path.join(args.features_path, f"class_{idx}.pt")
+                if not os.path.exists(mnist_class_path):
+                    torch.save(mnist_features[idx], mnist_class_path)
+
     # Set up datasets
     dataset_train = get_number_mil_dataset(
         dataset_type=args.dataset_type, num_numbers=args.num_numbers, num_bags=args.num_bags_train,
@@ -87,7 +100,7 @@ def main():
         num_instances=args.num_instances, features_type=args.features_type, sampling=args.sampling,
         noise=args.noise, threshold=args.threshold, features_path=args.features_path
     )
-    collate_fn = bag_collate_fn if args.model_type == 'attention_mil' else None
+    collate_fn = bag_collate_fn if args.model_type in ['attention_mil', 'additive_mil'] else None
     data_loader_train = DataLoader(dataset_train, batch_size=args.batch_size, collate_fn=collate_fn)
     data_loader_val = DataLoader(dataset_val, batch_size=args.batch_size, collate_fn=collate_fn)
     data_loader_test = DataLoader(dataset_test, batch_size=1, collate_fn=collate_fn)
