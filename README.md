@@ -10,20 +10,23 @@ xMIL: Insightful Explanations for Multiple Instance Learning in Histopathology
   <br><em>Julius Hense*, Mina Jamshidi Idaji*, Oliver Eberle, Thomas Schnake, Jonas Dippel, Laure Ciernik, 
 Oliver Buchstab, Andreas Mock, Frederick Klauschen, Klaus-Robert Müller </em></br>
 * Equal contribution
-
-arXiv: https://arxiv.org/abs/2406.04280
-
-
 Accepted as a poster presentation at NeurIPS2024
+
+Open Review: https://openreview.net/forum?id=Y1fPxGevQj
+
+:octocat: https://github.com/tubml-pathology/xMIL
+
 
 </summary>
 
 ```
-@article{hense2024xmil,
-  title={xMIL: Insightful Explanations for Multiple Instance Learning in Histopathology},
-  author={Hense, Julius and Idaji, Mina Jamshidi and Eberle, Oliver and Schnake, Thomas and Dippel, Jonas and Ciernik, Laure and Buchstab, Oliver and Mock, Andreas and Klauschen, Frederick and M{\"u}ller, Klaus-Robert},
-  journal={arXiv preprint arXiv:2406.04280},
-  year={2024}
+@inproceedings{
+hense2024xmil,
+title={x{MIL}: Insightful Explanations for Multiple Instance Learning in Histopathology},
+author={Julius Hense and Mina Jamshidi Idaji and Oliver Eberle and Thomas Schnake and Jonas Dippel and Laure Ciernik and Oliver Buchstab and Andreas Mock and Frederick Klauschen and Klaus Robert Muller},
+booktitle={The Thirty-eighth Annual Conference on Neural Information Processing Systems},
+year={2024},
+url={https://openreview.net/forum?id=Y1fPxGevQj}
 }
 ```
 
@@ -130,11 +133,13 @@ you can open an issue in this repository, or contact us:
 ## License and citation
 If you find our codes useful in your work, please cite us:
 ```
-@article{hense2024xmil,
-  title={xMIL: Insightful Explanations for Multiple Instance Learning in Histopathology},
-  author={Hense, Julius and Idaji, Mina Jamshidi and Eberle, Oliver and Schnake, Thomas and Dippel, Jonas and Ciernik, Laure and Buchstab, Oliver and Mock, Andreas and Klauschen, Frederick and M{\"u}ller, Klaus-Robert},
-  journal={arXiv preprint arXiv:2406.04280},
-  year={2024}
+@inproceedings{
+hense2024xmil,
+title={x{MIL}: Insightful Explanations for Multiple Instance Learning in Histopathology},
+author={Julius Hense and Mina Jamshidi Idaji and Oliver Eberle and Thomas Schnake and Jonas Dippel and Laure Ciernik and Oliver Buchstab and Andreas Mock and Frederick Klauschen and Klaus Robert Muller},
+booktitle={The Thirty-eighth Annual Conference on Neural Information Processing Systems},
+year={2024},
+url={https://openreview.net/forum?id=Y1fPxGevQj}
 }
 ```
 
