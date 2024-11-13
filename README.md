@@ -10,6 +10,7 @@ xMIL: Insightful Explanations for Multiple Instance Learning in Histopathology
   <br><em>Julius Hense*, Mina Jamshidi Idaji*, Oliver Eberle, Thomas Schnake, Jonas Dippel, Laure Ciernik, 
 Oliver Buchstab, Andreas Mock, Frederick Klauschen, Klaus-Robert Müller </em></br>
 * Equal contribution
+
 Accepted as a poster presentation at NeurIPS2024
 
 Open Review: https://openreview.net/forum?id=Y1fPxGevQj
