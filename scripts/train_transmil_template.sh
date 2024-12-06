@@ -43,6 +43,7 @@ python3 train.py \
 --objective cross-entropy \
 --num-epochs 200 \
 --val-interval 1 \
+--stop-criterion auc \
 \
 --test-checkpoint best \
 \

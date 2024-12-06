@@ -91,7 +91,6 @@ class xModelFactory:
                 discard_ratio=explanation_args.get('discard_ratio', 0),
                 attention_layer=explanation_args.get('attention_layer', None),
                 head_fusion=explanation_args.get('head_fusion', 'mean'),
-                detach_attn=explanation_args.get('detach_attn', True),
                 detach_norm=explanation_args.get('detach_norm', None),
                 detach_mean=explanation_args.get('detach_mean', False),
                 detach_pe=explanation_args.get('detach_pe', False)

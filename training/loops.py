@@ -31,7 +31,7 @@ def train_classification_model(
     best_model = callback.get_model_dict(model_state_dict=model.state_dict(),
                                          optimizer_state_dict=optimizer.state_dict(),
                                          i_epoch=-1,
-                                         loss_val=np.Inf,
+                                         loss_val=np.inf,
                                          auc_val=_get_empty_auc_dict(label_cols))
     # endregion
 
@@ -126,9 +126,11 @@ def train_classification_model(
 
         # region save checkpoint and check early stopping ---------------------------
         if not i_epoch % callback.checkpoint_epoch:
-            callback.save_checkpoint(i_epoch, auc_all_train, auc_all_val, loss_all_train, loss_all_val,
-                                     auc_epoch_train, auc_epoch_val, loss_epoch_train, loss_epoch_val,
-                                     optimizer.state_dict(), model.state_dict(), best_model)
+            _, best_model = callback.save_checkpoint(
+                i_epoch, auc_all_train, auc_all_val, loss_all_train, loss_all_val,
+                auc_epoch_train, auc_epoch_val, loss_epoch_train, loss_epoch_val,
+                optimizer.state_dict(), model.state_dict(), best_model,
+                return_args=True)
             callback.early_stopping(i_epoch)
         if callback.stop:
             break
@@ -137,10 +139,11 @@ def train_classification_model(
     # region save checkpoint  ---------------------------
     performance = None
     if n_epochs:
-        performance = callback.save_checkpoint(n_epochs - 1, auc_all_train, auc_all_val, loss_all_train, loss_all_val,
-                                               auc_epoch_train, auc_epoch_val, loss_epoch_train, loss_epoch_val,
-                                               optimizer.state_dict(), model.state_dict(), best_model, last_model=True,
-                                               return_args=True)
+        performance, best_model = callback.save_checkpoint(
+            n_epochs - 1, auc_all_train, auc_all_val, loss_all_train, loss_all_val,
+            auc_epoch_train, auc_epoch_val, loss_epoch_train, loss_epoch_val,
+            optimizer.state_dict(), model.state_dict(), best_model, last_model=True,
+            return_args=True)
 
     # endregion
 

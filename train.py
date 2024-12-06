@@ -84,6 +84,7 @@ def get_args():
     parser.add_argument('--num-epochs', type=int, default=100)
     parser.add_argument('--val-interval', type=int, default=1)
     parser.add_argument('--early-stopping', action='store_true')
+    parser.add_argument('--stop-criterion', type=str, default='loss')
     parser.add_argument('--optimizer', type=str, default='SGD')
     parser.add_argument('--grad-clip', type=float, default=None)
 
@@ -124,7 +125,7 @@ def main(args=None):
     # Set up callback
     callback = Callback(
         schedule_lr=args.schedule_lr, checkpoint_epoch=args.val_interval, path_checkpoints=save_dir,
-        early_stop=args.early_stopping)
+        stop_criterion=args.stop_criterion, early_stop=args.early_stopping)
 
     # Run training
     print("Model training")

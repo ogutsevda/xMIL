@@ -90,7 +90,7 @@ class Callback:
             torch.save(performance, name_save)
 
         if return_args:
-            return performance
+            return performance, best_model
 
     def get_best_model(self,
                        best_model,

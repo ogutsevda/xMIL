@@ -4,14 +4,11 @@
 (c) xTransMIl, all xforward methods, and the classifier class are original implementations.
 
 """
-from functools import partial
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import numpy as np
 from captum.attr import IntegratedGradients
 
-from models.utils import Classifier
 from models.attention import Attention
 
 from xai.lrp_rules import modified_linear_layer
@@ -50,24 +47,23 @@ class TransLayer(nn.Module):
             bias=bias
         )
 
-    def forward(self, x):
-        feat_att = self.attn(self.norm(x))
+    def forward(self, x, save_attn=False):
+        feat_att = self.attn(self.norm(x), save_attn=save_attn)
         x = x + feat_att
         return x
 
-    def xforward(self, x, detach_attn=False, detach_norm=None, lrp_params=None, verbose=False):
+    def xforward(self, x, detach_norm=None, lrp_params=None, verbose=False):
         """
         forward method for the explanation stage.
         Args:
-            detach_attn: [Boolean] If True, the self attention head is detached from the comp graph.
-
-            detach_norm: [Dictionary or None (default)] dic containing booleans whether to detach the mean
+        :param x:
+        :param detach_norm: [Dictionary or None (default)] dic containing booleans whether to detach the mean
              and/or the std in the normalization layer. None is equivalent to {'mean': False, 'std': False}.
-
-            lrp_params: [Dictionary or None (default)] dic containing the necessary LRP parameters. None is
+        :param lrp_params: [Dictionary or None (default)] dic containing the necessary LRP parameters. None is
             equivalent to {'gamma': 0, 'eps': 1e-5, 'no_bias': False}. no_bias is True if the bias is discarded in
             LRP rules.
-
+        :param verbose:
+        :return:
         """
         detach_norm = set_detach_norm(detach_norm)
         lrp_params = set_lrp_params(lrp_params)
@@ -79,7 +75,7 @@ class TransLayer(nn.Module):
                               bias=self.norm.bias, dim=x.shape[-1], verbose=verbose)
             x_norm = norm(x)
 
-        feat_att = self.attn.xforward(x_norm, detach_attn=detach_attn, lrp_params=lrp_params, verbose=verbose)
+        feat_att = self.attn.xforward(x_norm, lrp_params=lrp_params, verbose=verbose)
         out = x + feat_att
         return out
 
@@ -231,7 +227,7 @@ class TransMIL(nn.Module):
         cls_tokens = self.cls_token.expand(B, -1, -1).to(self.device)
         return torch.cat((cls_tokens, h), dim=1)
 
-    def forward(self, x):
+    def forward(self, x, save_attn=False):
         h = x.float()  # [B, n, n_feat_input]
         h = self._fc1(h)  # [B, n, n_feat]
         h = self.dropout_feat(h)
@@ -244,14 +240,14 @@ class TransMIL(nn.Module):
             h = self._add_clstoken(h)
 
         # ---->Translayer x1
-        h = self.translayers[0](h)
+        h = self.translayers[0](h, save_attn=save_attn)
 
         # ---->PPEG
         h = self.pos_layer(h, _H, _H)  # [B, N, n_feat]
 
         # ---->Translayer x2 onwards
         for layer in self.translayers[1:]:
-            h = layer(h)
+            h = layer(h, save_attn=save_attn)
 
         h = self.norm(h)
 
@@ -271,14 +267,12 @@ class TransMIL(nn.Module):
     def forward_fn(self, features, bag_sizes):
         return self.forward(features)
 
-    def activations(self, x, detach_attn=True, detach_norm=None, detach_pe=False, lrp_params=None, verbose=False):
+    def activations(self, x, detach_norm=None, detach_pe=False, lrp_params=None, verbose=False):
         """
         method for collecting the activations for the explanation stage.
 
         Args:
             x: [n_batch x n_patch x n_feat] input feature tensor.
-
-            detach_attn: [Boolean] If True, the self attention head is detached from the comp graph.
 
             detach_norm: [Dictionary or None (default)] dict containing booleans whether to detach the mean
              and/or the std in the normalization layer. None is equivalent to {'mean': False, 'std': False}.
@@ -331,9 +325,8 @@ class TransMIL(nn.Module):
         attn0_input_data = var_data_requires_grad(attn0_input)
         activations['translayer-0'] = {'input': attn0_input, 'input-data': attn0_input_data, 'input-p': attn0_input_p}
 
-        attn_output = self.translayers[0].xforward(attn0_input_data,
-                                                   detach_attn=detach_attn, detach_norm=detach_norm,
-                                                   lrp_params=lrp_params, verbose=verbose)
+        attn_output = self.translayers[0].xforward(
+            attn0_input_data, detach_norm=detach_norm, lrp_params=lrp_params, verbose=verbose)
         # ---->PPEG
         pos_enc_input = attn_output
         pos_enc_input_p = None
@@ -354,7 +347,6 @@ class TransMIL(nn.Module):
                                                         'input-p': attn_input_p}
 
             attn_output = layer.xforward(attn_input_data,
-                                         detach_attn=detach_attn,
                                          detach_norm=detach_norm,
                                          lrp_params=lrp_params, verbose=verbose)
 
@@ -395,6 +387,10 @@ class TransMIL(nn.Module):
 
         return activations
 
+    def set_attentions_to_none(self):
+        for layer in self.translayers:
+            layer.attn.attn_scores = None
+
 
 class xTransMIL(xMIL):
     """
@@ -409,7 +405,7 @@ class xTransMIL(xMIL):
     method get_heatmap(batch, heatmap_type) from the base class can be used to get the heatmap of desired method.
     """
     def __init__(self, model, explained_class=None, explained_rel='logit', lrp_params=None, contrastive_class=None,
-                 discard_ratio=0, attention_layer=None, head_fusion='mean', detach_attn=True, detach_norm=None,
+                 discard_ratio=0, attention_layer=None, head_fusion='mean', detach_norm=None,
                  detach_mean=False, detach_pe=False):
         """
         Args:
@@ -428,8 +424,6 @@ class xTransMIL(xMIL):
             attention_layer: [int] The layer from which to extract attention scores. If None, all layers are
                 multiplied (attention rollout).
 
-            detach_attn: [Boolean] If True, the self attention head is detached from the comp graph.
-
             detach_norm: [Dictionary or None (default)] dic containing booleans whether to detach the mean
              and/or the std in the normalization layer. None is equivalent to {'mean': False, 'std': False}.
 
@@ -446,7 +440,6 @@ class xTransMIL(xMIL):
         self.discard_ratio = discard_ratio
         self.attention_layer = attention_layer
         self.head_fusion = head_fusion
-        self.detach_attn = detach_attn
         self.detach_norm = set_detach_norm(detach_norm)
         self.detach_mean = detach_mean
         self.detach_pe = detach_pe
@@ -461,7 +454,7 @@ class xTransMIL(xMIL):
         features = features.to(torch.float32).to(self.device)
 
         self.model.eval()
-        _ = self.model(features)
+        _ = self.model(features, save_attn=True)
 
         n_attention_tokens = self.model.translayers[0].attn.attn_scores.shape[-2]
         square_pad_tokens = int(np.ceil(np.sqrt(n_patches))) ** 2 - n_patches
@@ -506,6 +499,7 @@ class xTransMIL(xMIL):
                     result = torch.matmul(a, result)
 
         mask = result[0, attn_pad_tokens, attn_pad_tokens + 1:attn_pad_tokens + 1 + n_patches]
+        self.model.set_attentions_to_none()
         return mask.cpu().detach().numpy()
 
     def explain_lrp(self, batch, verbose=False):
@@ -524,8 +518,8 @@ class xTransMIL(xMIL):
         features = batch['features'].to(torch.float32).to(self.device)
 
         self.model.eval()
-        activations = self.model.activations(features, detach_attn=self.detach_attn, detach_norm=self.detach_norm,
-                                             detach_pe=self.detach_pe, lrp_params=self.lrp_params)
+        activations = self.model.activations(
+            features, detach_norm=self.detach_norm, detach_pe=self.detach_pe, lrp_params=self.lrp_params)
         bag_relevance, R = self.lrp_gi(
             activations, self.set_explained_class(batch), self.contrastive_class, self.explained_rel,
             self.lrp_params['eps'], verbose)
