@@ -95,7 +95,6 @@ def get_xmodel(model_type, explanation_type, model, detach_pe=False):
             discard_ratio=0,
             attention_layer=None,
             head_fusion='mean',
-            detach_attn=True,
             detach_norm=None,
             detach_mean=False,
             detach_pe=detach_pe

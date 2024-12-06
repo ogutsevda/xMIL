@@ -40,6 +40,7 @@ python3 train.py \
 --objective cross-entropy \
 --num-epochs 1000 \
 --val-interval 1 \
+--stop-criterion auc \
 \
 --test-checkpoint best \
 \

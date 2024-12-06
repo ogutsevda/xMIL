@@ -46,7 +46,7 @@ class MILSlideDataset(Dataset):
                            min_bag_size <= len(self.patch_ids[idx]) <= max_bag_size]
             print(f"Dropping {len(self.split_metadata) - len(keep_slides)} slides with more than {max_bag_size} "
                   f"or fewer than {min_bag_size} patches.")
-            self.split_metadata = self.split_metadata.loc[keep_slides].reset_index(drop=True)
+            self.split_metadata = self.split_metadata.iloc[keep_slides].reset_index(drop=True)
             self.feature_indices = [self.feature_indices[idx] for idx in keep_slides]
             self.patch_ids = [self.patch_ids[idx] for idx in keep_slides]
         if preload_features:
@@ -97,9 +97,9 @@ class MILSlideDataset(Dataset):
         """
         idx = idx // self.num_repetitions
         # Load relevant metadata
-        source_id, slide_id = self.split_metadata.loc[idx, ['source_id', 'slide_id']]
+        source_id, slide_id = self.split_metadata.iloc[idx][['source_id', 'slide_id']]
         patch_ids = self.patch_ids[idx]
-        targets = torch.tensor(self.split_metadata.loc[idx, self.label_cols])
+        targets = torch.tensor(self.split_metadata.iloc[idx][self.label_cols].values.astype(int))
         # Load (filtered) features
         if self.features is None:
             features_path = os.path.join(self.features_dirs[source_id], slide_id)

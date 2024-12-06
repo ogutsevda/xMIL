@@ -85,10 +85,11 @@ class Attention(nn.Module):
         self.attn_scores = None
         self.method = method
 
-    def self_attention(self, x, mask=None, detach_attn=False, xai_mode=False, lrp_params=None, verbose=False):
+    def self_attention(self, x, mask=None, xai_mode=False, lrp_params=None, save_attn=False, verbose=False):
         lrp_params = set_lrp_params(lrp_params)
 
-        b, n, _, h, m, iters, eps = *x.shape, self.heads, self.num_landmarks, self.pinv_iterations, self.eps
+        b, n, _ = x.shape
+        h, m, iters, eps = self.heads, self.num_landmarks, self.pinv_iterations, self.eps
 
         if self.method == 'nystrom':
             # pad so that sequence can be evenly divided into m landmarks
@@ -155,28 +156,46 @@ class Attention(nn.Module):
         else:
             sim1 = einsum(einops_eq, q, k)
 
+        if xai_mode and save_attn:
+            # assumption: in xai_mode we anyway don't want to save attention scores
+            save_attn = False
+            if verbose:
+                print('in xai mode no attention score can be saved! therefore, save_attn is set to False')
+
         # eq (15) in the paper and aggregate values
         if self.method == 'nystrom':
             attn1, attn2, attn3 = map(lambda t: t.softmax(dim=-1), (sim1, sim2, sim3))
             attn2_inv = moore_penrose_iter_pinv(attn2, iters)
-            att1 = attn1 @ attn2_inv
-            self.attn_scores = att1 @ attn3
-            del att1
-        else:
-            self.attn_scores = F.softmax(sim1, dim=-1)
+            if not xai_mode and not save_attn:
+                # this if case shall be used for the usual forward pass in training
+                out = (attn1 @ attn2_inv) @ (attn3 @ v)
+            elif not xai_mode and save_attn:
+                # this if case shall be used for computing the attention map
+                self.attn_scores = attn1 @ attn2_inv @ attn3
+                out = self.attn_scores @ v
+            else:
+                # this if case shall be used in xai mode
+                out = (attn1 @ attn2_inv @ attn3).detach() @ v
+        else:  # dot-prod attention
+            if not xai_mode and not save_attn:
+                # this if case shall be used for the usual forward pass in training
+                out = F.softmax(sim1, dim=-1) @ v
+            elif not xai_mode and save_attn:
+                # this if case shall be used for computing the attention map
+                self.attn_scores = F.softmax(sim1, dim=-1)
+                out = self.attn_scores @ v
+            else:
+                # this if case shall be used in xai mode
+                out = F.softmax(sim1, dim=-1).detach() @ v
 
-        if detach_attn:
-            self.attn_scores = self.attn_scores.detach()
-            if verbose:
-                print('Attention heads were detached from the computational graph!')
-
-        out = self.attn_scores @ v
+        if xai_mode and verbose:
+            print('Attention heads were detached from the computational graph!')
 
         return out, v
 
-    def forward(self, x, mask=None):
+    def forward(self, x, mask=None, save_attn=False):
 
-        out, v = self.self_attention(x, mask=mask)
+        out, v = self.self_attention(x, mask=mask, save_attn=save_attn)
 
         # add depth-wise conv residual of values
         if self.residual:
@@ -192,26 +211,25 @@ class Attention(nn.Module):
 
         return out
 
-    def xforward(self, x, mask=None, detach_attn=False, lrp_params=None, verbose=False):
+    def xforward(self, x, mask=None, lrp_params=None, verbose=False):
         """
         forward method for the explanation stage. it uses gamma_layers (go to utils_lrp) for linear layers.
         Args:
-            detach_attn: [Boolean] If True, the self attention head is detached from the comp graph.
-
-            lrp_params: [Dictionary or None (default)] dic containing the necessary LRP parameters. None is
+        :param x:
+        :param mask:
+        :param lrp_params: [Dictionary or None (default)] dic containing the necessary LRP parameters. None is
             equivalent to {'gamma': 0, 'eps': 1e-5, 'no_bias': False}. no_bias is True if the bias is discarded in
             LRP rules.
-
+        :param verbose: (boolean)
+        :return:
         """
         lrp_params = set_lrp_params(lrp_params)
 
-        out, v = self.self_attention(x, mask=mask, detach_attn=detach_attn,
-                                     xai_mode=True, lrp_params=lrp_params, verbose=verbose)
+        out, v = self.self_attention(x, mask=mask, xai_mode=True, lrp_params=lrp_params, verbose=verbose)
         # add depth-wise conv residual of values
         if self.residual:
             res_conv_ = modified_linear_layer(self.res_conv, lrp_params['gamma'],  lrp_params['no_bias'])
             v_res = res_conv_(v)
-
             out = out + v_res
 
         # merge and combine heads
