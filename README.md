@@ -6,12 +6,12 @@ xMIL: Insightful Explanations for Multiple Instance Learning in Histopathology
 
 <details>
 <summary>
-  <b>xMIL: Insightful Explanations for Multiple Instance Learning in Histopathology</b>, arXiv, 2024.
+  <b>xMIL: Insightful Explanations for Multiple Instance Learning in Histopathology</b>. NeurIPS 2024.
   <br><em>Julius Hense*, Mina Jamshidi Idaji*, Oliver Eberle, Thomas Schnake, Jonas Dippel, Laure Ciernik, 
 Oliver Buchstab, Andreas Mock, Frederick Klauschen, Klaus-Robert Müller </em></br>
 * Equal contribution
 
-Accepted as a poster presentation at NeurIPS2024
+Accepted as a poster presentation at NeurIPS 2024.
 
 Open Review: https://openreview.net/forum?id=Y1fPxGevQj
 
@@ -24,7 +24,7 @@ Open Review: https://openreview.net/forum?id=Y1fPxGevQj
 @inproceedings{
 hense2024xmil,
 title={x{MIL}: Insightful Explanations for Multiple Instance Learning in Histopathology},
-author={Julius Hense and Mina Jamshidi Idaji and Oliver Eberle and Thomas Schnake and Jonas Dippel and Laure Ciernik and Oliver Buchstab and Andreas Mock and Frederick Klauschen and Klaus Robert Muller},
+author={Julius Hense and Mina Jamshidi Idaji and Oliver Eberle and Thomas Schnake and Jonas Dippel and Laure Ciernik and Oliver Buchstab and Andreas Mock and Frederick Klauschen and Klaus Robert M{\"u}ller},
 booktitle={The Thirty-eighth Annual Conference on Neural Information Processing Systems},
 year={2024},
 url={https://openreview.net/forum?id=Y1fPxGevQj}
@@ -137,7 +137,7 @@ If you find our codes useful in your work, please cite us:
 @inproceedings{
 hense2024xmil,
 title={x{MIL}: Insightful Explanations for Multiple Instance Learning in Histopathology},
-author={Julius Hense and Mina Jamshidi Idaji and Oliver Eberle and Thomas Schnake and Jonas Dippel and Laure Ciernik and Oliver Buchstab and Andreas Mock and Frederick Klauschen and Klaus Robert Muller},
+author={Julius Hense and Mina Jamshidi Idaji and Oliver Eberle and Thomas Schnake and Jonas Dippel and Laure Ciernik and Oliver Buchstab and Andreas Mock and Frederick Klauschen and Klaus Robert M{\"u}ller},
 booktitle={The Thirty-eighth Annual Conference on Neural Information Processing Systems},
 year={2024},
 url={https://openreview.net/forum?id=Y1fPxGevQj}
