@@ -28,7 +28,6 @@ def get_args():
                         help='list of the heatmap types that have the precomputed patch scores')
 
     parser.add_argument('--max-bag-size', type=int, default=-1)
-    parser.add_argument('--min-bag-size', type=int, default=0)
     parser.add_argument('--strategy', type=str, default='1%-of-all')
     parser.add_argument('--approach', type=str, default='drop', choices=['drop', 'add'])
 
