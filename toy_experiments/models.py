@@ -46,7 +46,7 @@ def get_model_and_classifier(
             gradient_clip=None,
             device=device
         )
-    if model_type == 'conjunctive_mil':
+    elif model_type == 'conjunctive_mil':
         model = get_conjunctive_mil_model(
             input_dim=num_features,
             num_classes=num_classes,
