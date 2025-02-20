@@ -1,6 +1,7 @@
 from models.attention_mil import AttentionMILModel, xAttentionMIL
 from models.transmil import TransMIL, xTransMIL
 from models.additive_mil import get_additive_mil_model, xAdditiveMIL
+from models.conjunctive_mil import get_conjunctive_mil_model, xConjunctiveMIL
 from models.utils import Classifier
 
 
@@ -24,6 +25,39 @@ def get_model_and_classifier(
             model=model,
             learning_rate=learning_rate,
             weight_decay=weight_decay,
+            optimizer='Adam',
+            objective='cross-entropy',
+            gradient_clip=None,
+            device=device
+        )
+    elif model_type == 'additive_mil':
+        model = get_additive_mil_model(
+            input_dim=num_features,
+            num_classes=num_classes,
+            hidden_dim=model_dims,
+            device=device
+        )
+        classifier = Classifier(
+            model=model,
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            optimizer='Adam',
+            objective='cross-entropy',
+            gradient_clip=None,
+            device=device
+        )
+    if model_type == 'conjunctive_mil':
+        model = get_conjunctive_mil_model(
+            input_dim=num_features,
+            num_classes=num_classes,
+            hidden_dim=model_dims,
+            device=device
+        )
+        classifier = Classifier(
+            model=model,
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            optimizer='Adam',
             objective='cross-entropy',
             gradient_clip=None,
             device=device
@@ -53,22 +87,6 @@ def get_model_and_classifier(
             gradient_clip=None,
             device=device
         )
-    elif model_type == 'additive_mil':
-        model = get_additive_mil_model(
-            input_dim=num_features,
-            num_classes=num_classes,
-            hidden_dim=model_dims,
-            device=device
-        )
-        classifier = Classifier(
-            model=model,
-            learning_rate=learning_rate,
-            weight_decay=weight_decay,
-            optimizer='Adam',
-            objective='cross-entropy',
-            gradient_clip=None,
-            device=device
-        )
     else:
         raise ValueError(f"Unknown model type: {model_type}")
     return model, classifier
@@ -85,6 +103,16 @@ def get_xmodel(model_type, explanation_type, model, detach_pe=False):
             contrastive_class=None,
             detach_attn=True
         )
+    elif model_type == 'additive_mil':
+        xmodel = xAdditiveMIL(
+            model=model,
+            explained_class=None,
+        )
+    if model_type == 'conjunctive_mil':
+        xmodel = xConjunctiveMIL(
+            model=model,
+            explained_class=None,
+        )
     elif model_type == 'transmil':
         xmodel = xTransMIL(
             model=model,
@@ -98,11 +126,6 @@ def get_xmodel(model_type, explanation_type, model, detach_pe=False):
             detach_norm=None,
             detach_mean=False,
             detach_pe=detach_pe
-        )
-    elif model_type == 'additive_mil':
-        xmodel = xAdditiveMIL(
-            model=model,
-            explained_class=None,
         )
     else:
         raise ValueError(f"No explanation class implemented for model of type: {type(model)}")

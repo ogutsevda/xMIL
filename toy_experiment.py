@@ -33,7 +33,7 @@ def get_args():
     parser.add_argument('--threshold', type=int, default=1)
     parser.add_argument('--noise', type=float, default=0)
 
-    parser.add_argument('--model-type', type=str, required=True, choices=['attention_mil', 'transmil', 'additive_mil'])
+    parser.add_argument('--model-type', type=str, required=True, choices=['attention_mil', 'transmil', 'additive_mil', "conjunctive_mil"])
     parser.add_argument('--model-dims', type=int, default=20)
     parser.add_argument('--dropout', action='store_true')
     parser.add_argument('--n-out-layers', type=int, default=0)
@@ -100,7 +100,7 @@ def main():
         num_instances=args.num_instances, features_type=args.features_type, sampling=args.sampling,
         noise=args.noise, threshold=args.threshold, features_path=args.features_path
     )
-    collate_fn = bag_collate_fn if args.model_type in ['attention_mil', 'additive_mil'] else None
+    collate_fn = bag_collate_fn if args.model_type in ['attention_mil', 'additive_mil', "conjunctive_mil"] else None
     data_loader_train = DataLoader(dataset_train, batch_size=args.batch_size, collate_fn=collate_fn)
     data_loader_val = DataLoader(dataset_val, batch_size=args.batch_size, collate_fn=collate_fn)
     data_loader_test = DataLoader(dataset_test, batch_size=1, collate_fn=collate_fn)
