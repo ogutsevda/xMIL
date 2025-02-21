@@ -108,7 +108,7 @@ def get_xmodel(model_type, explanation_type, model, detach_pe=False):
             model=model,
             explained_class=None,
         )
-    if model_type == 'conjunctive_mil':
+    elif model_type == 'conjunctive_mil':
         xmodel = xConjunctiveMIL(
             model=model,
             explained_class=None,
