@@ -97,7 +97,8 @@ class xMIL(nn.Module):
 
     def get_heatmap(self, batch, heatmap_type, verbose=False):
         if heatmap_type == 'attention' or heatmap_type == 'attention_rollout':
-            patch_scores = self.attention_map(batch)
+            # patch_scores = self.attention_map(batch)
+            pos_patch_scores, neg_patch_scores, patch_scores = self.attention_map(batch)
         elif heatmap_type == 'lrp':
             patch_scores, _, _ = self.explain_lrp(batch, verbose=verbose)
         elif heatmap_type == 'gi':
@@ -111,13 +112,15 @@ class xMIL(nn.Module):
         elif heatmap_type == 'perturbation_drop':
             patch_scores = self.explain_perturbation(batch, 'drop')
         elif heatmap_type == 'patch_scores':
-            patch_scores = self.explain_patch_scores(batch)
+            # patch_scores = self.explain_patch_scores(batch)
+            pos_patch_scores, neg_patch_scores, patch_scores = self.explain_patch_scores(batch)
         elif heatmap_type == 'random':
             patch_scores = xMIL.random_scores(batch)
         else:
             raise ValueError(f"Heatmap type not supported for attention mil model: {heatmap_type}")
 
-        return patch_scores
+        # return patch_scores
+        return pos_patch_scores, neg_patch_scores, patch_scores
 
     def get_heatmap_zero_centered(self, heatmap_type):
         """

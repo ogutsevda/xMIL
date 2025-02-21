@@ -2,6 +2,7 @@ from models.attention_mil import AttentionMILModel, xAttentionMIL
 from models.transmil import TransMIL, xTransMIL
 from models.additive_mil import get_additive_mil_model, xAdditiveMIL
 from models.conjunctive_mil import get_conjunctive_mil_model, xConjunctiveMIL
+from models.adjunctive_mil import get_adjunctive_mil_model, xAdjunctiveMIL
 from models.utils import Classifier
 
 
@@ -48,6 +49,22 @@ def get_model_and_classifier(
         )
     elif model_type == 'conjunctive_mil':
         model = get_conjunctive_mil_model(
+            input_dim=num_features,
+            num_classes=num_classes,
+            hidden_dim=model_dims,
+            device=device
+        )
+        classifier = Classifier(
+            model=model,
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            optimizer='Adam',
+            objective='cross-entropy',
+            gradient_clip=None,
+            device=device
+        )
+    elif model_type == 'adjunctive_mil':
+        model = get_adjunctive_mil_model(
             input_dim=num_features,
             num_classes=num_classes,
             hidden_dim=model_dims,
@@ -110,6 +127,11 @@ def get_xmodel(model_type, explanation_type, model, detach_pe=False):
         )
     elif model_type == 'conjunctive_mil':
         xmodel = xConjunctiveMIL(
+            model=model,
+            explained_class=None,
+        )
+    elif model_type == 'adjunctive_mil':
+        xmodel = xAdjunctiveMIL(
             model=model,
             explained_class=None,
         )

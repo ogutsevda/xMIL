@@ -6,6 +6,8 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 from scipy.stats import pearsonr, spearmanr
 from tqdm import tqdm
 
+from models.adjunctive_mil import xAdjunctiveMIL
+
 
 def train_model(classifier, num_classes, data_loader_train, data_loader_val, batch_size,
                 num_epochs=100, warmup=15, tolerance=0.0, patience=5, checkpoint='best'):
@@ -114,29 +116,41 @@ def evaluate_explanation(xmodel, classifier, data_loader_test, explanation_type,
         for eval_class in eval_classes:
 
             xmodel.explained_class = eval_class
-            patch_scores = xmodel.get_heatmap(batch, explanation_type, False)
+
             evidence = batch['evidence'][eval_class][0]
             assert -1 <= evidence.min() and evidence.max() <= 1
             evidence_pos = torch.nn.functional.relu(evidence)
             evidence_neg = torch.nn.functional.relu(-evidence)
             evidence_rank = evidence + 1
 
+            if isinstance(xmodel, xAdjunctiveMIL):
+
+                # SEVDA'S MODIFICATIONS
+                patch_scores_pos, patch_scores_neg, patch_scores_net = xmodel.get_heatmap(batch, explanation_type, False)
+
+            else:
+
+                patch_scores_net = xmodel.get_heatmap(batch, explanation_type, False)
+                patch_scores_pos = patch_scores_net
+                patch_scores_neg = -patch_scores_pos
+
+
             auroc_2, auprc_2 = [], []
 
             if 0 < evidence_pos.sum() < len(evidence_pos):
-                auroc = roc_auc_score(evidence_pos.detach().cpu().numpy(), patch_scores)
-                auprc = average_precision_score(evidence_pos.detach().cpu().numpy(), patch_scores)
+                auroc = roc_auc_score(evidence_pos.detach().cpu().numpy(), patch_scores_pos)
+                auprc = average_precision_score(evidence_pos.detach().cpu().numpy(), patch_scores_pos)
                 scores['auroc_pos'].append(auroc)
                 scores['auprc_pos'].append(auprc)
                 auroc_2.append(auroc)
                 auprc_2.append(auprc)
-                scores['ndgcn'].append(ndgcn(evidence_rank.detach().cpu().numpy(), patch_scores, ndgcn_n))
-                scores['pearsonr'].append(pearsonr(evidence.detach().cpu().numpy(), patch_scores))
-                scores['spearmanr'].append(spearmanr(evidence.detach().cpu().numpy(), patch_scores))
+                scores['ndgcn'].append(ndgcn(evidence_rank.detach().cpu().numpy(), patch_scores_net, ndgcn_n))
+                # scores['pearsonr'].append(pearsonr(evidence.detach().cpu().numpy(), patch_scores_net))
+                # scores['spearmanr'].append(spearmanr(evidence.detach().cpu().numpy(), patch_scores_net))
 
             if 0 < evidence_neg.sum() < len(evidence_neg):
-                auroc_2.append(roc_auc_score(evidence_neg.detach().cpu().numpy(), -patch_scores))
-                auprc_2.append(average_precision_score(evidence_neg.detach().cpu().numpy(), -patch_scores))
+                auroc_2.append(roc_auc_score(evidence_neg.detach().cpu().numpy(), patch_scores_neg))
+                auprc_2.append(average_precision_score(evidence_neg.detach().cpu().numpy(), patch_scores_neg))
 
             if len(auroc_2) > 0:
                 scores['auroc_2'].append(np.asarray(auroc_2).mean())
